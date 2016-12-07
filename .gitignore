@@ -243,3 +243,5 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+/Internet Blaster/Internet Blaster
+/Internet Blaster/Internet Blaster.sln

@@ -12,7 +12,7 @@ namespace Process_Auto_Start
 {
     public partial class MainForm : Form
     {
-        OpenFileDialog openDialog = new OpenFileDialog()
+        readonly OpenFileDialog openDialog = new OpenFileDialog()
         {
             Title = "Select an executable",
             Filter = "Executable files|*.exe",
@@ -27,24 +27,25 @@ namespace Process_Auto_Start
         bool targetFileSelected; // Boolean to check if we've selected a file to look for.
         bool launchFileSelected; // Boolean to check if we've selected a file to launch.
         bool processOpened; // Boolean to check if the file we want to launch has opened.
-        bool allowLogging = true; // Boolean to allow logging.
+        readonly bool allowLogging = true; // Boolean to allow logging.
 
-        string logFile = Environment.CurrentDirectory + Path.DirectorySeparatorChar + "log.txt"; // This allows for easy referencing of the log file.
+        // This allows for easy referencing of the log file.
+        private readonly string logFile = Environment.CurrentDirectory + Path.DirectorySeparatorChar + "log.txt";
 
-        string CurrentVersion // Credit to Matteo Mosca & Co;
-        {                     // https://stackoverflow.com/a/6499302
-            get
-            {
-                return ApplicationDeployment.IsNetworkDeployed
-                       ? ApplicationDeployment.CurrentDeployment.CurrentVersion.ToString()
-                       : Assembly.GetExecutingAssembly().GetName().Version.ToString();
-            }
-        }
+        /* Credit to Matteo Mosca & Co;
+         * https://stackoverflow.com/a/6499302
+         */
+        private static string CurrentVersion => ApplicationDeployment.IsNetworkDeployed
+                                                    ? ApplicationDeployment.CurrentDeployment.CurrentVersion.ToString()
+                                                    : Assembly.GetExecutingAssembly().GetName().Version.ToString();
 
         public MainForm()
         {
-            if (Settings.Default.UpgradeRequired) // Credit to Markus Olsson;
-            {                                     // http://stackoverflow.com/a/534335
+            /* Credit to Markus Olsson;
+             * http://stackoverflow.com/a/534335 
+             */
+            if (Settings.Default.UpgradeRequired)
+            {
                 Settings.Default.Upgrade();
                 Settings.Default.UpgradeRequired = false;
                 Settings.Default.Save();
@@ -77,7 +78,7 @@ namespace Process_Auto_Start
                 // Change the label text, update checkbox positions and tell the program we have the file.
                 lblTarget.Text = targetFile;
 
-                updateCheckboxPositions();
+                UpdateCheckboxPositions();
 
                 targetFileSelected = true;
             }
@@ -92,7 +93,7 @@ namespace Process_Auto_Start
 
                 lblLaunch.Text = launchFile;
 
-                updateCheckboxPositions();
+                UpdateCheckboxPositions();
 
                 launchFileSelected = true;
             }
@@ -102,12 +103,13 @@ namespace Process_Auto_Start
             cbxAutoClose.Checked = Settings.Default.autoClose;
 
             if (targetFileSelected && launchFileSelected) btnStart.Enabled = true; // If we have both files already, enable the Start button.
+
             if (btnStart.Enabled && cbxAutoStart.Checked) // If the Start button is enabled and the Auto Start checkbox is checked; invoke mainMethod().
             {
                 btnStart.Text = "Stop";
 
-                asyncMainMethod asyncMM = mainMethod;
-                IAsyncResult result = asyncMM.BeginInvoke(null, null);
+                AsyncMainMethod asyncMM = MainMethod;
+                asyncMM.BeginInvoke(null, null);
             }
         }
 
@@ -123,7 +125,12 @@ namespace Process_Auto_Start
                 Log("File selected: " + openDialog.FileName);
 
                 // Check to see if we actually has an execuatable, set file path and file name variables.
-                if (!openDialog.SafeFileName.EndsWith(".exe")) { MessageBox.Show("Please select an execuatable.", "Invalid file selected."); Log("Invalid file."); return; }
+                if (openDialog.SafeFileName != null && !openDialog.SafeFileName.EndsWith(".exe"))
+                {
+                    MessageBox.Show("Please select an execuatable.", "Invalid file selected.");
+                    Log("Invalid file.");
+                    return;
+                }
 
                 targetPath = openDialog.FileName;
                 targetFile = openDialog.SafeFileName;
@@ -146,9 +153,10 @@ namespace Process_Auto_Start
                     Settings.Default.procTarget = targetPath;
                     Settings.Default.Save();
 
-                    updateCheckboxPositions();
+                    UpdateCheckboxPositions();
 
-                    if (targetFileSelected && launchFileSelected) btnStart.Enabled = true; // If we have both booleans set to true, enable the Start button.
+                    if (targetFileSelected && launchFileSelected)
+                        btnStart.Enabled = true; // If we have both booleans set to true, enable the Start button.
                 }
             }
             else if (result == DialogResult.Cancel)
@@ -168,7 +176,12 @@ namespace Process_Auto_Start
             {
                 Log("File selected: " + openDialog.FileName);
 
-                if (!openDialog.SafeFileName.EndsWith(".exe")) { MessageBox.Show("Please select an execuatable.", "Invalid file selected."); Log("Invalid file."); return; }
+                if (openDialog.SafeFileName != null && !openDialog.SafeFileName.EndsWith(".exe"))
+                {
+                    MessageBox.Show("Please select an execuatable.", "Invalid file selected.");
+                    Log("Invalid file.");
+                    return;
+                }
 
                 launchPath = openDialog.FileName;
                 launchFile = openDialog.SafeFileName;
@@ -190,7 +203,7 @@ namespace Process_Auto_Start
                     Settings.Default.procLaunch = launchPath;
                     Settings.Default.Save();
 
-                    updateCheckboxPositions();
+                    UpdateCheckboxPositions();
 
                     if (targetFileSelected && launchFileSelected) btnStart.Enabled = true;
                 }
@@ -204,13 +217,13 @@ namespace Process_Auto_Start
 
         private void btnStart_Click(object sender, EventArgs e)
         {
-            asyncMainMethod asyncMM = mainMethod;
+            AsyncMainMethod asyncMM = MainMethod;
 
             if (btnStart.Text == "Start") // The user has pressed Start.
             {
                 btnStart.Text = "Stop";
 
-                IAsyncResult result = asyncMM.BeginInvoke(null, null); // Invoke mainMethod()
+                asyncMM.BeginInvoke(null, null);
             }
             else if (btnStart.Text == "Stop") // The user has pressed Stop.
             {
@@ -218,7 +231,7 @@ namespace Process_Auto_Start
                 btnStart.Text = "Start";
             }
         }
-         
+
         private void btnReset_Click(object sender, EventArgs e) // This method resets everything.
         {
             Log("Everything reset.");
@@ -258,12 +271,15 @@ namespace Process_Auto_Start
             Settings.Default.Save();
         }
 
-        void updateCheckboxPositions()
+        private void UpdateCheckboxPositions()
         {
             Log("Updating checkbox positions.");
 
-            if (lblTarget.Text.Length > lblLaunch.Text.Length) // if the Process Look label is larger then the Process Launch label
-            {                                                  // we set the checkboxes positions and form size according to the Process Look label.
+            /* if the Process Look label is larger then the Process Launch label
+             * we set the checkboxes positions and form size according to the Process Look label.
+             */
+            if (lblTarget.Text.Length > lblLaunch.Text.Length)
+            {
                 Log("lblTarget.Text.Length > lblLaunch.Text.Length");
 
                 cbxAutoStart.Location = new Point(lblTarget.Right + 2, cbxAutoStart.Location.Y);
@@ -282,21 +298,21 @@ namespace Process_Auto_Start
             }
         }
 
-        void mainMethod()
+        private void MainMethod()
         {
-            asyncLog aLog = Log;
+            AsyncLog aLog = Log;
             Invoke(aLog, "Monitoring started. Auto Start: " + cbxAutoStart.Checked + ". Auto Close: " + cbxAutoClose.Checked + ".");
 
             // Disable the open buttons and the reset button.
-            asyncButtonEnabledMethod btnEM = buttonEnabledMethod;
+            AsyncButtonEnabledMethod btnEM = ButtonEnabledMethod;
             btnEM.Invoke(btnLaunch, false);
             btnEM.Invoke(btnTarget, false);
             btnEM.Invoke(btnReset, false);
 
             // Initialize variables for the various async methods we'll use.
-            asyncButtonTextMethod btnTM = buttonTextMethod;
-            asyncLabelChangeTextMethod lblCTM = labelChangeTextMethod;
-            asyncFormSizeMethod formSM = formSizeMethod;
+            AsyncButtonTextMethod btnTM = ButtonTextMethod;
+            AsyncLabelChangeTextMethod lblCTM = LabelChangeTextMethod;
+            AsyncFormSizeMethod formSM = FormSizeMethod;
 
             bool thereIsntAProblem = true; // This boolean is used for when launching an executable doesn't work.
 
@@ -311,8 +327,11 @@ namespace Process_Auto_Start
                 // If our process we need to launch isn't there, we tell the user we're looking for the process.
                 if (procArrayLook.Length == 0) lblCTM.Invoke(lblStatus, "Waiting for " + targetFile);
 
-                if (procArrayLook.Length == 1 && !processOpened) // If we've found the process, we'll tell the user we've found the process,
-                {                                                // and we're launching the specific executable.
+                /* If we've found the process, we'll tell the user we've found the process,
+                 * and we're launching the specific executable.
+                 */
+                if (procArrayLook.Length == 1 && !processOpened)
+                {
                     Invoke(aLog, "Found the target process.");
 
                     lblCTM.Invoke(lblStatus, targetFile + " opened. Launching " + launchFile);
@@ -328,8 +347,11 @@ namespace Process_Auto_Start
 
                             Process.Start(process); // Launch the process
                         }
-                        catch (Exception ex) // If there's a problem launching the process, log the problem to a file (error.txt)
-                        {                    // and tell the user we've found a problem. We'll also stop this method.
+                        /* If there's a problem launching the process, log the problem to a file (error.txt)
+                         * and tell the user we've found a problem. We'll also stop this method.
+                         */
+                        catch (Exception ex)
+                        {
                             Invoke(aLog, "Process couldn't be opened. Error:" + Environment.NewLine + ex);
 
                             thereIsntAProblem = false;
@@ -338,24 +360,27 @@ namespace Process_Auto_Start
                         }
                     }
 
-                    // If we don't have a problem, tell the user we've launched the program.
-                    if (thereIsntAProblem) { lblCTM.Invoke(lblStatus, targetFile + " opened. " + launchFile + " launched."); aLog.Invoke("Process launched."); };
+                    if (thereIsntAProblem) // If we don't have a problem, tell the user we've launched the program.
+                    {
+                        lblCTM.Invoke(lblStatus, targetFile + " opened. " + launchFile + " launched.");
+                        aLog.Invoke("Process launched.");
+                    }
 
                     processOpened = true; // Set this boolean to true so we know the process is there.
                 }
 
-                if (processOpened && procArrayLook.Length == 0 && cbxAutoClose.Checked) // If the process we're looking for is closed.
-                {
-                    aLog.Invoke("Target process closed, closing launch process."); // Tell the user we're closing the program we want to look for.
-                    lblCTM.Invoke(lblStatus, targetFile + " closed. Closing " + launchFile);
+                // If the process we're looking for is closed.
+                if (!processOpened || procArrayLook.Length != 0 || !cbxAutoClose.Checked) continue;
 
-                    Console.WriteLine("Closing: " + launchFile.Split('.')[0]); // Close the program
-                    Process.GetProcessesByName(launchFile.Split('.')[0])[0].CloseMainWindow();
+                aLog.Invoke("Target process closed, closing launch process."); // Tell the user we're closing the program we want to look for.
+                lblCTM.Invoke(lblStatus, targetFile + " closed. Closing " + launchFile);
 
-                    lblCTM.Invoke(lblStatus, targetFile + " closed. " + launchFile + " closed."); // Tell the user we've closed the program.
-                    formSM.Invoke(this, 400, 150); // Set the form size back to normal.
-                    processOpened = false;
-                }
+                Console.WriteLine("Closing: " + launchFile.Split('.')[0]); // Close the program
+                Process.GetProcessesByName(launchFile.Split('.')[0])[0].CloseMainWindow();
+
+                lblCTM.Invoke(lblStatus, targetFile + " closed. " + launchFile + " closed."); // Tell the user we've closed the program.
+                formSM.Invoke(this, 400, 150); // Set the form size back to normal.
+                processOpened = false;
             }
 
             aLog.Invoke("Monitoring stopped.");
@@ -369,13 +394,13 @@ namespace Process_Auto_Start
             if (btnStart.Text == "Stop") // Change the button name to "Start".
                 btnTM.Invoke(btnStart, "Start");
 
-            if (thereIsntAProblem) // If there wasn't a problem opening the process we want to launch, tell the user that we're waiting to start again.
+            if (thereIsntAProblem) // If there wasn't a problem opening the process we want to launch, tell the user that we're waiting to start again. 
                 lblCTM.Invoke(lblStatus, "Waiting to start.");
 
             formSM.Invoke(this, 400, 150); // Reset the form size.
         }
 
-        void Log(string text) // Method for logging.
+        private void Log(string text) // Method for logging.
         {
             if (allowLogging)
             {
@@ -385,32 +410,37 @@ namespace Process_Auto_Start
             }
         }
 
-        void buttonEnabledMethod(Button button, bool enabled) // Async method to enable or disable a button.
+        private void ButtonEnabledMethod(Button button, bool enabled) // Async method to enable or disable a button.
         {
             button.Enabled = enabled;
         }
 
-        void buttonTextMethod(Button button, string text) // Async method to change a button's text.
+        private void ButtonTextMethod(Button button, string text) // Async method to change a button's text.
         {
             button.Text = text;
         }
 
-        void labelChangeTextMethod(Label label, string text) // Async method to change a label's text.
+        private void LabelChangeTextMethod(Label label, string text) // Async method to change a label's text.
         {
             label.Text = text;
         }
 
-        void formSizeMethod(Form form, int width, int height) // Async method to change a form's size.
+        private void FormSizeMethod(Form form, int width, int height) // Async method to change a form's size.
         {
             form.Size = new Size(width, height);
         }
 
         // Async delegates for invoking while we're running mainMethod().
-        delegate void asyncMainMethod();
-        delegate void asyncLog(string text);
-        delegate void asyncButtonEnabledMethod(Button button, bool enabled);
-        delegate void asyncButtonTextMethod(Button button, string text);
-        delegate void asyncLabelChangeTextMethod(Label label, string text);
-        delegate void asyncFormSizeMethod(Form form, int width, int height);
+        public delegate void AsyncMainMethod();
+
+        private delegate void AsyncLog(string text);
+
+        public delegate void AsyncButtonEnabledMethod(Button button, bool enabled);
+
+        public delegate void AsyncButtonTextMethod(Button button, string text);
+
+        private delegate void AsyncLabelChangeTextMethod(Label label, string text);
+
+        private delegate void AsyncFormSizeMethod(Form form, int width, int height);
     }
 }

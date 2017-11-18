@@ -83,7 +83,7 @@
             // lblTarget
             // 
             this.lblTarget.AutoSize = true;
-            this.lblTarget.Location = new System.Drawing.Point(198, 18);
+            this.lblTarget.Location = new System.Drawing.Point(189, 18);
             this.lblTarget.Name = "lblTarget";
             this.lblTarget.Size = new System.Drawing.Size(0, 13);
             this.lblTarget.TabIndex = 4;
@@ -91,7 +91,7 @@
             // lblLaunch
             // 
             this.lblLaunch.AutoSize = true;
-            this.lblLaunch.Location = new System.Drawing.Point(198, 48);
+            this.lblLaunch.Location = new System.Drawing.Point(189, 48);
             this.lblLaunch.Name = "lblLaunch";
             this.lblLaunch.Size = new System.Drawing.Size(0, 13);
             this.lblLaunch.TabIndex = 5;
